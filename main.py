@@ -295,8 +295,9 @@ if ticker1:
             )
         
         # 그래프 레이아웃 설정
+        title_text = f"{ticker1}" + (f" vs {ticker2}" if ticker2 else "") + " - 주가 비교"
         fig.update_layout(
-            title=f"{ticker1}" + (f" vs {ticker2}" if ticker2 else "") + " - 주가 비교",
+            title=title_text,
             xaxis_title="날짜",
             yaxis_title=f"{ticker1} 주가",
             template="plotly_white",
@@ -379,9 +380,4 @@ if ticker1:
             stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
             
             with stat_col1:
-                st.metric(
-                    label="최고가",
-                    value=f"{stock_data1['High'].max():,.2f}"
-                )
-            
-            with
+                st.metric
