@@ -285,7 +285,7 @@ if ticker1:
                 yaxis='y2'
             ))
             
-            # 두 번째 Y축 추가 (두 종목의 가격대가 다를 수 있으므로)
+            # 두 번째 Y축 추가
             fig.update_layout(
                 yaxis2=dict(
                     title=f"{ticker2} 주가",
@@ -361,23 +361,4 @@ if ticker1:
                 with stats2_col2:
                     st.metric(
                         label="최저가",
-                        value=f"{stock_data2['Low'].min():,.2f}"
-                    )
-                
-                with stats2_col3:
-                    st.metric(
-                        label="평균가",
-                        value=f"{stock_data2['Close'].mean():,.2f}"
-                    )
-                
-                with stats2_col4:
-                    st.metric(
-                        label="거래량",
-                        value=f"{stock_data2['Volume'].mean():,.0f}"
-                    )
-        else:
-            # 1개 종목
-            stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-            
-            with stat_col1:
-                st.metric
+                        value=f"{stock_data2['Low'].min():,.2
