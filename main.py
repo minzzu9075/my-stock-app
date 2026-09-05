@@ -1,364 +1,197 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
-# 페이지 설정
 st.set_page_config(
     page_title="주식 비교 앱",
     page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="wide"
 )
 
-# 따뜻한 톤 커스텀 스타일
-st.markdown("""
-    <style>
-    .main {
-        background-color: #FFF8F0;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #FFE5D9, #FFF0E6);
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 4px solid #FF8C42;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# 제목과 설명
 st.title("📊 주식 비교 앱")
 st.markdown("**2개의 종목을 나란히 비교할 수 있습니다.**")
-st.markdown("예) `005930.KS` (삼성전자), `AAPL` (애플)")
 
-# ===== 1. 종목 입력 (2개 입력창) =====
 st.markdown("---")
 st.markdown("### 📝 종목 선택")
 
-ticker_col1, ticker_col2 = st.columns(2)
+col1, col2 = st.columns(2)
+with col1:
+    ticker1 = st.text_input("첫 번째 종목", placeholder="AAPL").strip().upper()
+with col2:
+    ticker2 = st.text_input("두 번째 종목 (선택)", placeholder="MSFT").strip().upper()
 
-with ticker_col1:
-    ticker1 = st.text_input(
-        "첫 번째 종목 코드",
-        placeholder="예: 005930.KS 또는 AAPL",
-        label_visibility="collapsed"
-    ).strip().upper()
-
-with ticker_col2:
-    ticker2 = st.text_input(
-        "두 번째 종목 코드 (선택사항)",
-        placeholder="예: 000660.KS 또는 MSFT",
-        label_visibility="collapsed"
-    ).strip().upper()
-
-# ===== 2. 기간 선택 (버튼) =====
 st.markdown("---")
 st.markdown("### 📅 기간 선택")
 
-# 버튼 레이아웃
 period_col1, period_col2, period_col3, period_col4 = st.columns(4)
-
 with period_col1:
-    if st.button("📆 1개월", use_container_width=True):
-        st.session_state.selected_period = "1month"
-
+    if st.button("1개월"):
+        st.session_state.period = "1mo"
 with period_col2:
-    if st.button("📆 6개월", use_container_width=True):
-        st.session_state.selected_period = "6months"
-
+    if st.button("6개월"):
+        st.session_state.period = "6mo"
 with period_col3:
-    if st.button("📆 1년", use_container_width=True):
-        st.session_state.selected_period = "1year"
-
+    if st.button("1년"):
+        st.session_state.period = "1y"
 with period_col4:
-    if st.button("📆 5년", use_container_width=True):
-        st.session_state.selected_period = "5years"
+    if st.button("5년"):
+        st.session_state.period = "5y"
 
-# 기본값 설정 (1년)
-if "selected_period" not in st.session_state:
-    st.session_state.selected_period = "1year"
+if "period" not in st.session_state:
+    st.session_state.period = "1y"
 
-# 선택된 기간 표시
-period_display = {
-    "1month": "1개월",
-    "6months": "6개월",
-    "1year": "1년",
-    "5years": "5년"
-}
-st.markdown(f"**선택된 기간**: 🕐 {period_display[st.session_state.selected_period]}")
+period_text = {"1mo": "1개월", "6mo": "6개월", "1y": "1년", "5y": "5년"}
+st.markdown(f"**선택: {period_text[st.session_state.period]}**")
 
-# ===== 3. 기간에 따른 날짜 계산 함수 =====
-def get_date_range(period):
-    """
-    선택된 기간에 따라 시작날짜와 종료날짜를 계산
-    """
-    end_date = datetime.now()
-    
-    if period == "1month":
-        start_date = end_date - timedelta(days=30)
-    elif period == "6months":
-        start_date = end_date - timedelta(days=180)
-    elif period == "1year":
-        start_date = end_date - timedelta(days=365)
-    elif period == "5years":
-        start_date = end_date - timedelta(days=365*5)
-    
-    return start_date, end_date
-
-# ===== 4. 데이터 조회 함수 =====
 @st.cache_data
-def get_stock_data(ticker_code, start_date, end_date):
-    """
-    yfinance로 주가 데이터를 불러옴
-    """
+def get_stock_data(ticker, period):
     try:
-        # 주가 데이터 다운로드
-        data = yf.download(
-            ticker_code,
-            start=start_date,
-            end=end_date,
-            progress=False
-        )
-        
+        data = yf.download(ticker, period=period, progress=False)
         if data.empty:
             return None
-        
         return data
-    except Exception as e:
-        return None
-
-# ===== 5. 종목 정보 조회 함수 =====
-def get_stock_info(ticker_code):
-    """
-    종목의 현재 정보를 불러옴
-    """
-    try:
-        ticker_obj = yf.Ticker(ticker_code)
-        info = ticker_obj.info
-        return info
     except:
         return None
 
-# ===== 6. 메인 로직 =====
 st.markdown("---")
 
 if ticker1:
-    # 선택된 기간의 시작날짜와 종료날짜 구하기
-    start_date, end_date = get_date_range(st.session_state.selected_period)
+    data1 = get_stock_data(ticker1, st.session_state.period)
+    data2 = get_stock_data(ticker2, st.session_state.period) if ticker2 else None
     
-    # 데이터 로딩
-    with st.spinner(f"📥 {ticker1} 데이터를 불러오는 중..."):
-        stock_data1 = get_stock_data(ticker1, start_date, end_date)
-        stock_info1 = get_stock_info(ticker1)
-    
-    # ticker2가 입력된 경우
-    if ticker2:
-        with st.spinner(f"📥 {ticker2} 데이터를 불러오는 중..."):
-            stock_data2 = get_stock_data(ticker2, start_date, end_date)
-            stock_info2 = get_stock_info(ticker2)
-    else:
-        stock_data2 = None
-        stock_info2 = None
-    
-    # ===== 데이터 검증 =====
-    if stock_data1 is not None and not stock_data1.empty:
-        # 지표 카드 표시
+    if data1 is not None and not data1.empty:
         st.markdown("### 💰 지표")
         
-        # 변화율 계산
-        current_price1 = stock_data1['Close'].iloc[-1]
-        period_ago_price1 = stock_data1['Close'].iloc[0]
-        change_amount1 = current_price1 - period_ago_price1
-        change_percent1 = (change_amount1 / period_ago_price1) * 100
+        current1 = float(data1['Close'].iloc[-1])
+        prev1 = float(data1['Close'].iloc[0])
+        change1 = current1 - prev1
+        change_pct1 = (change1 / prev1) * 100
         
-        # 1열 또는 2열 레이아웃 결정
-        if ticker2 and stock_data2 is not None and not stock_data2.empty:
-            # 2개 종목 비교: 2열 레이아웃
-            metric_col1, metric_col2 = st.columns(2)
+        if ticker2 and data2 is not None and not data2.empty:
+            col_m1, col_m2 = st.columns(2)
             
-            with metric_col1:
-                st.markdown(f"#### 🔹 {ticker1}")
-                sub_col1, sub_col2, sub_col3 = st.columns(3)
-                
-                with sub_col1:
-                    st.metric(
-                        label="현재가",
-                        value=f"{current_price1:,.2f}"
-                    )
-                
-                with sub_col2:
-                    st.metric(
-                        label="등락률",
-                        value=f"{change_percent1:.2f}%",
-                        delta=f"{change_amount1:,.2f}"
-                    )
-                
-                with sub_col3:
-                    st.metric(
-                        label="최고가",
-                        value=f"{stock_data1['High'].max():,.2f}"
-                    )
+            with col_m1:
+                st.markdown(f"#### {ticker1}")
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.metric("현재가", f"${current1:,.2f}")
+                with c2:
+                    st.metric("등락률", f"{change_pct1:.2f}%", delta=f"${change1:,.2f}")
+                with c3:
+                    st.metric("최고가", f"${float(data1['High'].max()):,.2f}")
             
-            # 두 번째 종목 지표
-            current_price2 = stock_data2['Close'].iloc[-1]
-            period_ago_price2 = stock_data2['Close'].iloc[0]
-            change_amount2 = current_price2 - period_ago_price2
-            change_percent2 = (change_amount2 / period_ago_price2) * 100
+            current2 = float(data2['Close'].iloc[-1])
+            prev2 = float(data2['Close'].iloc[0])
+            change2 = current2 - prev2
+            change_pct2 = (change2 / prev2) * 100
             
-            with metric_col2:
-                st.markdown(f"#### 🔹 {ticker2}")
-                sub_col1, sub_col2, sub_col3 = st.columns(3)
-                
-                with sub_col1:
-                    st.metric(
-                        label="현재가",
-                        value=f"{current_price2:,.2f}"
-                    )
-                
-                with sub_col2:
-                    st.metric(
-                        label="등락률",
-                        value=f"{change_percent2:.2f}%",
-                        delta=f"{change_amount2:,.2f}"
-                    )
-                
-                with sub_col3:
-                    st.metric(
-                        label="최고가",
-                        value=f"{stock_data2['High'].max():,.2f}"
-                    )
+            with col_m2:
+                st.markdown(f"#### {ticker2}")
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.metric("현재가", f"${current2:,.2f}")
+                with c2:
+                    st.metric("등락률", f"{change_pct2:.2f}%", delta=f"${change2:,.2f}")
+                with c3:
+                    st.metric("최고가", f"${float(data2['High'].max()):,.2f}")
         else:
-            # 1개 종목: 3열 레이아웃
-            metric_col1, metric_col2, metric_col3 = st.columns(3)
-            
-            with metric_col1:
-                st.metric(
-                    label="💰 현재가",
-                    value=f"{current_price1:,.2f}"
-                )
-            
-            with metric_col2:
-                st.metric(
-                    label="📈 등락률",
-                    value=f"{change_percent1:.2f}%",
-                    delta=f"{change_amount1:,.2f}"
-                )
-            
-            with metric_col3:
-                st.metric(
-                    label="🎯 최고가",
-                    value=f"{stock_data1['High'].max():,.2f}"
-                )
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric("💰 현재가", f"${current1:,.2f}")
+            with c2:
+                st.metric("📈 등락률", f"{change_pct1:.2f}%", delta=f"${change1:,.2f}")
+            with c3:
+                st.metric("🎯 최고가", f"${float(data1['High'].max()):,.2f}")
         
-        # ===== 7. 주가 그래프 =====
         st.markdown("---")
         st.markdown("### 📊 주가 추이")
         
-        # Plotly 그래프 생성
         fig = go.Figure()
         
-        # 첫 번째 종목 라인 (왼쪽 Y축)
         fig.add_trace(go.Scatter(
-            x=stock_data1.index,
-            y=stock_data1['Close'],
+            x=data1.index,
+            y=data1['Close'],
             mode='lines',
-            name=f'{ticker1} 종가',
-            line=dict(
-                color='#FF8C42',  # 따뜻한 주황색
-                width=3
-            ),
-            yaxis='y'
+            name=f'{ticker1}',
+            line=dict(color='#FF8C42', width=3)
         ))
         
-        # 두 번째 종목 추가 (있는 경우)
-        if ticker2 and stock_data2 is not None and not stock_data2.empty:
+        if ticker2 and data2 is not None and not data2.empty:
             fig.add_trace(go.Scatter(
-                x=stock_data2.index,
-                y=stock_data2['Close'],
+                x=data2.index,
+                y=data2['Close'],
                 mode='lines',
-                name=f'{ticker2} 종가',
-                line=dict(
-                    color='#6C63FF',  # 보라색
-                    width=3
-                ),
+                name=f'{ticker2}',
+                line=dict(color='#6C63FF', width=3),
                 yaxis='y2'
             ))
             
-            # 두 번째 Y축 추가
             fig.update_layout(
                 yaxis2=dict(
-                    title=f"{ticker2} 주가",
+                    title=f"{ticker2} ($)",
                     overlaying='y',
                     side='right'
                 )
             )
         
-        # 그래프 레이아웃 설정
-        title_text = f"{ticker1}" + (f" vs {ticker2}" if ticker2 else "") + " - 주가 비교"
         fig.update_layout(
-            title=title_text,
+            title=f"{ticker1}" + (f" vs {ticker2}" if ticker2 else ""),
             xaxis_title="날짜",
-            yaxis_title=f"{ticker1} 주가",
+            yaxis_title=f"{ticker1} ($)",
             template="plotly_white",
             hovermode='x unified',
-            height=500,
-            font=dict(size=12),
-            margin=dict(l=60, r=60, t=80, b=60),
-            plot_bgcolor='rgba(255, 248, 240, 0.5)',
-            paper_bgcolor='rgba(255, 255, 255, 0.8)'
+            height=500
         )
         
-        # 그래프 표시
         st.plotly_chart(fig, use_container_width=True)
         
-        # ===== 8. 통계 정보 (각 종목별) =====
         st.markdown("---")
         st.markdown("### 📋 통계 정보")
         
-        if ticker2 and stock_data2 is not None and not stock_data2.empty:
-            # 2개 종목 비교
-            stat_col1, stat_col2 = st.columns(2)
+        if ticker2 and data2 is not None and not data2.empty:
+            col_s1, col_s2 = st.columns(2)
             
-            with stat_col1:
+            with col_s1:
                 st.markdown(f"#### {ticker1}")
-                stats1_col1, stats1_col2, stats1_col3, stats1_col4 = st.columns(4)
-                
-                with stats1_col1:
-                    st.metric(
-                        label="최고가",
-                        value=f"{stock_data1['High'].max():,.2f}"
-                    )
-                
-                with stats1_col2:
-                    st.metric(
-                        label="최저가",
-                        value=f"{stock_data1['Low'].min():,.2f}"
-                    )
-                
-                with stats1_col3:
-                    st.metric(
-                        label="평균가",
-                        value=f"{stock_data1['Close'].mean():,.2f}"
-                    )
-                
-                with stats1_col4:
-                    st.metric(
-                        label="거래량",
-                        value=f"{stock_data1['Volume'].mean():,.0f}"
-                    )
+                s1, s2, s3, s4 = st.columns(4)
+                with s1:
+                    st.metric("최고가", f"${float(data1['High'].max()):,.2f}")
+                with s2:
+                    st.metric("최저가", f"${float(data1['Low'].min()):,.2f}")
+                with s3:
+                    st.metric("평균가", f"${float(data1['Close'].mean()):,.2f}")
+                with s4:
+                    vol = data1['Volume'].mean()
+                    vol_str = f"{vol/1000000:.1f}M" if vol > 1000000 else f"{vol/1000:.0f}K"
+                    st.metric("평균거래량", vol_str)
             
-            with stat_col2:
+            with col_s2:
                 st.markdown(f"#### {ticker2}")
-                stats2_col1, stats2_col2, stats2_col3, stats2_col4 = st.columns(4)
-                
-                with stats2_col1:
-                    st.metric(
-                        label="최고가",
-                        value=f"{stock_data2['High'].max():,.2f}"
-                    )
-                
-                with stats2_col2:
-                    st.metric(
-                        label="최저가",
-                        value=f"{stock_data2['Low'].min():,.2
+                s1, s2, s3, s4 = st.columns(4)
+                with s1:
+                    st.metric("최고가", f"${float(data2['High'].max()):,.2f}")
+                with s2:
+                    st.metric("최저가", f"${float(data2['Low'].min()):,.2f}")
+                with s3:
+                    st.metric("평균가", f"${float(data2['Close'].mean()):,.2f}")
+                with s4:
+                    vol = data2['Volume'].mean()
+                    vol_str = f"{vol/1000000:.1f}M" if vol > 1000000 else f"{vol/1000:.0f}K"
+                    st.metric("평균거래량", vol_str)
+        else:
+            s1, s2, s3, s4 = st.columns(4)
+            with s1:
+                st.metric("최고가", f"${float(data1['High'].max()):,.2f}")
+            with s2:
+                st.metric("최저가", f"${float(data1['Low'].min()):,.2f}")
+            with s3:
+                st.metric("평균가", f"${float(data1['Close'].mean()):,.2f}")
+            with s4:
+                vol = data1['Volume'].mean()
+                vol_str = f"{vol/1000000:.1f}M" if vol > 1000000 else f"{vol/1000:.0f}K"
+                st.metric("평균거래량", vol_str)
+    else:
+        st.error(f"❌ {ticker1} 데이터를 불러올 수 없습니다.")
+else:
+    st.info("📌 종목 코드를 입력하세요 (예: AAPL, MSFT)")
