@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+import pandas as pd
 
 st.set_page_config(
     page_title="주식 비교 앱",
@@ -53,9 +53,12 @@ def get_stock_data(ticker, period):
     try:
         data = yf.download(ticker, period=period, progress=False)
         
-        # 데이터가 비어있으면 None 반환
         if data is None or data.empty:
             return None
+        
+        # 단일 행 데이터인 경우 DataFrame으로 변환
+        if isinstance(data, pd.Series):
+            data = data.to_frame().T
         
         return data
     except Exception as e:
@@ -64,14 +67,11 @@ def get_stock_data(ticker, period):
 
 st.markdown("---")
 
-# ticker1이 입력되었을 때만 실행
 if ticker1:
-    st.info(f"📥 {ticker1} 데이터를 불러오는 중...")
     data1 = get_stock_data(ticker1, st.session_state.period)
     
-    # data1이 정상적으로 로드되었을 때
     if data1 is not None and not data1.empty:
-        # ticker2 로드
+        
         if ticker2:
             data2 = get_stock_data(ticker2, st.session_state.period)
         else:
@@ -79,13 +79,14 @@ if ticker1:
         
         st.markdown("### 💰 지표")
         
-        # ticker1 데이터 처리
         try:
-            current1 = float(data1['Close'].iloc[-1])
-            prev1 = float(data1['Close'].iloc[0])
+            # 올바른 방식으로 값 추출
+            current1 = float(data1['Close'].iloc[-1].item() if hasattr(data1['Close'].iloc[-1], 'item') else data1['Close'].iloc[-1])
+            prev1 = float(data1['Close'].iloc[0].item() if hasattr(data1['Close'].iloc[0], 'item') else data1['Close'].iloc[0])
             change1 = current1 - prev1
-            change_pct1 = (change1 / prev1) * 100
+            change_pct1 = (change1 / prev1) * 100 if prev1 != 0 else 0
             max1 = float(data1['High'].max())
+            
         except Exception as e:
             st.error(f"❌ {ticker1} 데이터 처리 오류: {e}")
             st.stop()
@@ -104,13 +105,13 @@ if ticker1:
                 with c3:
                     st.metric("최고가", f"${max1:,.2f}")
             
-            # ticker2 데이터 처리
             try:
-                current2 = float(data2['Close'].iloc[-1])
-                prev2 = float(data2['Close'].iloc[0])
+                current2 = float(data2['Close'].iloc[-1].item() if hasattr(data2['Close'].iloc[-1], 'item') else data2['Close'].iloc[-1])
+                prev2 = float(data2['Close'].iloc[0].item() if hasattr(data2['Close'].iloc[0], 'item') else data2['Close'].iloc[0])
                 change2 = current2 - prev2
-                change_pct2 = (change2 / prev2) * 100
+                change_pct2 = (change2 / prev2) * 100 if prev2 != 0 else 0
                 max2 = float(data2['High'].max())
+                
             except Exception as e:
                 st.error(f"❌ {ticker2} 데이터 처리 오류: {e}")
                 st.stop()
@@ -125,7 +126,6 @@ if ticker1:
                 with c3:
                     st.metric("최고가", f"${max2:,.2f}")
         else:
-            # 1개 종목만
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.metric("💰 현재가", f"${current1:,.2f}")
@@ -222,11 +222,9 @@ if ticker1:
                 vol_str = f"{vol/1000000:.1f}M" if vol > 1000000 else f"{vol/1000:.0f}K"
                 st.metric("평균거래량", vol_str)
         
-        # 성공 메시지
         st.success("✅ 데이터 로드 완료!")
     
     else:
-        # data1이 None이거나 비어있음
         st.error(f"❌ '{ticker1}' 데이터를 불러올 수 없습니다.")
         st.info("💡 유효한 주식 코드를 입력하세요. (예: AAPL, MSFT, GOOGL)")
 
